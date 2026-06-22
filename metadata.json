@@ -1,0 +1,6 @@
+{
+  "name": "Iris Gen Editor by Aparna Velvet",
+  "description": "Generate and simulate a production-ready Python automation script that uses MoviePy, Gemini, and Pexels/Pixabay APIs to stitch high-quality video clips from SRT timestamps with an custom audio overlay, with no subtitle text overlays.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
