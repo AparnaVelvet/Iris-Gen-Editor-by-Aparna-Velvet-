@@ -177,7 +177,7 @@ def create_text_clip(text, fs, target_width, duration, target_height):
     txt_clip = safe_with_duration(txt_clip, duration)
     txt_clip = safe_with_position(txt_clip, ("center", target_height - 180))
     return txt_clip
-# ==============================================================================
+    # ==============================================================================
 # 🧩 HELPER FUNCTIONS & BUSINESS LOGIC
 # ==============================================================================
 
@@ -229,9 +229,8 @@ def get_gemini_keywords(block_text, gemini_api_key):
         return [clean_keyword(block_text)]
         
     prompt = f"""
-    You are a video editor and cinematographer selecting high-quality B-roll stock video concepts.
-    Analyze the following narration segment and output EXACTLY one highly descriptive cinematic B-roll concept search keyword term (1-3 words max).
-    The term should specify visual content suitable for a standard stock library such as Pexels or Pixabay (e.g. 'cyberpunk programmer typing', 'neon highway time lapse', 'foggy futuristic metropolis').
+    You are a video editor selecting high-quality B-roll stock video concepts.
+    Analyze the following narration segment and output EXACTLY one descriptive cinematic B-roll concept search keyword term (1-3 words max).
     Do NOT output punctuation, numbers, titles, explanations, or quotes. Output ONLY the plain search term.
     
     Narration Segment: \"{block_text}\"
@@ -341,8 +340,7 @@ def main():
             "None (Strictly Audio Overlay ONLY & Timing Alignment)", 
             "Burn Subtitles (Fuchsia-shadow neon caption cards)"
         ],
-        index=0,
-        help="Choose whether to visually draw subtitle text on top of your video compilation."
+        index=0
     )
     is_burn_subtitles = "Burn Subtitles" in subtitle_render_mode
 
@@ -350,53 +348,34 @@ def main():
     st.markdown("### 🗂️ Step 1: Upload Workspace Assets")
     
     col1, col2 = st.columns(2)
-    
     with col1:
         st.markdown("**1. Narration Subtitle Sequence (.srt)**")
-        srt_file = st.file_uploader(
-            "Upload SRT subtitle timeline file",
-            type=["srt"],
-            label_visibility="collapsed"
-        )
+        srt_file = st.file_uploader("Upload SRT file", type=["srt"], label_visibility="collapsed")
         if srt_file:
-            st.success("✓ SRT File uploaded successfully!")
+            st.success("✓ SRT File uploaded!")
             
     with col2:
         st.markdown("**2. Custom Background Audio Track (.mp3, .wav)**")
-        audio_file = st.file_uploader(
-            "Upload background MP3/WAV narration sound track",
-            type=["mp3", "wav"],
-            label_visibility="collapsed"
-        )
+        audio_file = st.file_uploader("Upload background sound track", type=["mp3", "wav"], label_visibility="collapsed")
         if audio_file:
-            st.success("✓ Audio File uploaded successfully!")
+            st.success("✓ Audio File uploaded!")
 
     parsed_blocks = []
     if srt_file:
         try:
             srt_content = srt_file.getvalue().decode("utf-8")
             parsed_blocks = parse_srt_string(srt_content)
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            with st.expander(f"🔎 Parsed SRT Preview ({len(parsed_blocks)} Timeline Blocks Resolved)", expanded=False):
-                for b in parsed_blocks:
-                    st.markdown(f"**Block #{b['id']}** `[{b['start']:.2f}s -> {b['end']:.2f}s] ({b['duration']:.1f}s)` &mdash; *\"{b['text']}\"*")
         except Exception as e:
-            st.error(f"❌ Could not parse uploaded SRT subtitles correctly: {e}")
+            st.error(f"❌ Error parsing SRT: {e}")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("### 🛠️ Step 2: Render Automation Control Deck")
     
     assets_missing = not srt_file or not audio_file
-    
     if assets_missing:
-        st.warning("📥 Critical blocks missing: Please upload both your '.srt' subtitle sequence and your '.mp3' sound track to arm the generator triggers.")
+        st.warning("📥 Please upload both files to activate the engine.")
 
-    trigger_btn = st.button(
-        "🎬 Generate Video Pipeline", 
-        disabled=assets_missing,
-        use_container_width=True
-    )
+    trigger_btn = st.button("🎬 Generate Video Pipeline", disabled=assets_missing, use_container_width=True)
 
     if trigger_btn:
         progress_bar = st.progress(0)
@@ -409,164 +388,119 @@ def main():
             logs.append(f"{prefix} {text}")
             log_box.code("\n".join(logs), language="bash")
 
-        status_text.text("Verifying system dependencies...")
+        status_text.text("Starting system environment config...")
         progress_bar.progress(10)
-        append_log("Starting compilation process sequence in workspace engine...", "info")
         
-        try:
-             import moviepy
-             append_log(f"MoviePy library verified: Active environment version {moviepy.__version__}", "info")
-        except ImportError:
-             st.error("❌ Critical Library Error: MoviePy package is not installed.")
-             return
-
         temp_dir = tempfile.mkdtemp()
-        append_log(f"Workspace isolated sandbox initialized at: {temp_dir}", "info")
-        
         try:
-            progress_bar.progress(20)
-            status_text.text("Copying workspace uploaded inputs into sandbox...")
-            
             temp_audio_path = os.path.join(temp_dir, "input_audio.mp3")
             with open(temp_audio_path, "wb") as f_aud:
                 f_aud.write(audio_file.getvalue())
-            append_log(f"Narration background audio track parsed and captured.", "success")
             
-            status_text.text("Analyzing transcription concepts via Gemini AI API...")
-            progress_bar.progress(35)
-            
-            if gemini_api_key:
-                append_log("Activating Gemini model framework: query optimization triggered...", "info")
-            else:
-                append_log("Gemini API key is blank. Resorting to smart fallback noun tokens...", "info")
-
             segment_videos = []
             fallback_video_url = "https://videos.pexels.com/video-files/5198159/5198159-uhd_1080_1920_25fps.mp4" if is_vertical else "https://videos.pexels.com/video-files/3129957/3129957-uhd_1920_1080_25fps.mp4"
             
             for idx, block in enumerate(parsed_blocks):
-                status_text.text(f"Processing subtitle cut segment {idx+1}/{len(parsed_blocks)}...")
-                append_log(f"Segment #{block['id']} (Duration: {block['duration']:.2f}s): {block['text'][:45]}...", "info")
+                status_text.text(f"Downloading clip tags {idx+1}/{len(parsed_blocks)}...")
+                progress_bar.progress(10 + int((idx / len(parsed_blocks)) * 40))
                 
                 keywords = get_gemini_keywords(block["text"], gemini_api_key)
                 search_query = keywords[0] if keywords else clean_keyword(block["text"])
-                append_log(f" └─ Resolved cinematic key tag: \"{search_query}\"", "info")
                 
                 video_url = None
                 if pexels_api_key:
                     video_url = fetch_pexels_video_url(search_query, pexels_api_key, is_vertical)
-                    if video_url:
-                        append_log(f" └─ Successfully located stock B-roll video clip URL standard on Pexels.", "success")
-                    else:
-                        append_log(f" └─ No video clip returned. Using backup theme asset.", "info")
                 
                 if not video_url:
                     video_url = fallback_video_url
                     
-                dest_file_name = f"segment_clip_{block['id']}.mp4"
-                dest_path = os.path.join(temp_dir, dest_file_name)
-                
-                append_log(f" └─ Downloading stream clip {block['id']} to sandbox array...", "info")
+                dest_path = os.path.join(temp_dir, f"clip_{block['id']}.mp4")
                 r = requests.get(video_url, stream=True, timeout=15)
                 if r.status_code == 200:
                     with open(dest_path, 'wb') as f_vid:
                         shutil.copyfileobj(r.raw, f_vid)
-                    append_log(f" └─ Saved block segment buffer size: {os.path.getsize(dest_path)/1024/1024:.2f} MB", "success")
-                else:
-                    st.error("Could not retrieve stock loop clip.")
-                    return
                 
                 segment_videos.append({
-                    "block_id": block["id"],
-                    "path": dest_path,
-                    "start": block["start"],
-                    "duration": block["duration"],
-                    "text": block["text"]
+                    "id": block["id"], "path": dest_path, 
+                    "duration": block["duration"], "text": block["text"]
                 })
 
-            status_text.text("Structuring MoviePy Timeline assembly...")
+            status_text.text("RAM-Safe Video Processing Initialized...")
             progress_bar.progress(60)
-            append_log("Executing MoviePy core stitching, looping, and resolution alignment...", "info")
+            append_log("Starting RAM-Optimized clip compilation sequence...", "info")
             
             video_clips_array = []
             
             for item in segment_videos:
-                clip = VideoFileClip(item["path"]).without_audio()
+                raw_clip = VideoFileClip(item["path"]).without_audio()
                 
-                if clip.duration < item["duration"]:
-                    clip = safe_loop(clip, duration=item["duration"])
+                if raw_clip.duration < item["duration"]:
+                    processed = safe_loop(raw_clip, duration=item["duration"])
                 else:
-                    clip = safe_subclip(clip, 0, item["duration"])
+                    processed = safe_subclip(raw_clip, 0, item["duration"])
                 
-                clip_w, clip_h = clip.size
-                scale_factor = max(target_width / clip_w, target_height / clip_h)
-                
-                clip = safe_resize(clip, scale_factor)
-                new_w, new_h = clip.size
-                
-                x_center = (new_w - target_width) / 2
-                y_center = (new_h - target_height) / 2
-                clip = safe_crop(
-                    clip,
-                    x1=x_center, 
-                    y1=y_center, 
-                    x2=x_center + target_width, 
-                    y2=y_center + target_height
-                )
-                
-                append_log(f" ├─ Processed clip {item['block_id']}: Resized/Cropped coordinates to exactly {target_width}x{target_height}", "info")
+                # Aspect scaling and exact crop sizing
+                cw, ch = processed.size
+                scale = max(target_width / cw, target_height / ch)
+                processed = safe_resize(processed, scale)
+                nw, nh = processed.size
+                processed = safe_crop(processed, x1=(nw-target_width)/2, y1=(nh-target_height)/2, x2=(nw+target_width)/2, y2=(nh+target_height)/2)
                 
                 if is_burn_subtitles:
                     try:
                         fs = 36 if is_vertical else 44
-                        txt_clip = create_text_clip(item["text"], fs, target_width, item["duration"], target_height)
-                        
-                        composite_segment = CompositeVideoClip([clip, txt_clip], size=(target_width, target_height))
-                        composite_segment = safe_with_duration(composite_segment, item["duration"])
-                        video_clips_array.append(composite_segment)
-                        append_log(f" │  └─ Burned subtitle neon caption overlays centered on clip.", "success")
-                    except Exception as srt_err:
-                        append_log(f" │  └─ TextClip burning skipped/failed: {srt_err}", "warning")
-                        video_clips_array.append(clip)
+                        txt = create_text_clip(item["text"], fs, target_width, item["duration"], target_height)
+                        comp = CompositeVideoClip([processed, txt], size=(target_width, target_height))
+                        comp = safe_with_duration(comp, item["duration"])
+                        video_clips_array.append(comp)
+                    except Exception:
+                        video_clips_array.append(processed)
                 else:
-                    video_clips_array.append(clip)
+                    video_clips_array.append(processed)
+                
+                # Crucial low-RAM step: Free the handle to the downloaded clip file immediately
+                raw_clip.close()
 
-            status_text.text("Merging tracks and encoding MoviePy final layer...")
-            progress_bar.progress(80)
-            append_log("Concatenating sequential timelines B-rolls with compositing boundaries...", "info")
+            status_text.text("Chaining sequences together (Ultra-Low Memory Mode)...")
+            progress_bar.progress(75)
             
-            final_composite_video = concatenate_videoclips(video_clips_array, method="compose")
+            # Using method="chain" avoids holding every single frame array in RAM at the same time
+            final_video = concatenate_videoclips(video_clips_array, method="chain")
             
             try:
-                audio_overlay = AudioFileClip(temp_audio_path)
-                if audio_overlay.duration > final_composite_video.duration:
-                    audio_overlay = safe_subclip(audio_overlay, 0, final_composite_video.duration)
-                final_composite_video = safe_with_audio(final_composite_video, audio_overlay)
-                append_log("Sound track master channel overlay aligned and synced.", "success")
-            except Exception as aud_err:
-                append_log(f"Could not synthesize direct sound wave alignment: {aud_err}.", "warning")
+                audio_clip = AudioFileClip(temp_audio_path)
+                if audio_clip.duration > final_video.duration:
+                    audio_clip = safe_subclip(audio_clip, 0, final_video.duration)
+                final_video = safe_with_audio(final_video, audio_clip)
+            except Exception as ae:
+                append_log(f"Audio tracking skipped: {ae}", "warning")
 
-            final_output_path = os.path.join(temp_dir, "final_iris_output.mp4")
-            status_text.text("Rendering final movie frame trace sequence (24fps H.264 AAC)...")
-            append_log(f"Encoding finalized assembly output: {target_width}x{target_height} @ 24fps...", "info")
+            final_output_path = os.path.join(temp_dir, "low_ram_output.mp4")
+            status_text.text("Encoding frame timeline (1 Thread Mode)...")
+            append_log("Executing single-threaded compression to bypass Android limits...", "info")
             
-            final_composite_video.write_videofile(
+            # Rendering with a single thread ensures the OS won't kill Termux for sudden spikes
+            final_video.write_videofile(
                 final_output_path,
                 fps=24,
                 codec="libx264",
                 audio_codec="aac",
-                temp_audiofile=os.path.join(temp_dir, "temp-audio.m4a"),
-                remove_temp=True,
-                threads=4
+                threads=1,
+                preset="ultrafast",
+                logger=None
             )
             
             progress_bar.progress(100)
-            status_text.text("Compilation successfully completed!")
-            append_log("🌟 RENDER TIMELINE TERMINATED SUCCESSFULLY!", "success")
+            status_text.text("Compilation complete!")
+            append_log("🌟 WORKSPACE RENDER EXECUTED WITHOUT CRASHING!", "success")
             
             with open(final_output_path, "rb") as f_out:
                 final_bytes = f_out.read()
 
-            final_composite_video.close()
+            # Clean up all open streams completely
+            final_video.close()
+            for c in video_clips_array:
+                c.close()
             
             st.markdown("---")
             st.markdown("<h3 style='color: #D10068;'>🎉 Generated Video Output Room</h3>", unsafe_allow_html=True)
@@ -574,8 +508,6 @@ def main():
             col_preview, col_down = st.columns([3, 1])
             with col_preview:
                 st.video(final_output_path)
-                st.info("💡 Review the generated MoviePlayer above. Sound overlay and resolution transitions successfully processed!")
-                
             with col_down:
                 st.markdown("<br><br>", unsafe_allow_html=True)
                 st.download_button(
@@ -585,18 +517,14 @@ def main():
                     mime="video/mp4",
                     use_container_width=True
                 )
-                st.success("Your final video is ready to be stored locally!")
 
         except Exception as pipeline_err:
-            st.error(f"❌ Critical Pipeline Failure: {pipeline_err}")
-            append_log(f"Execution failed: {pipeline_err}", "error")
+            st.error(f"❌ Pipeline Failure: {pipeline_err}")
         finally:
             try:
                 shutil.rmtree(temp_dir)
-                append_log("Clean-up routine triggered: Isolated sandbox temporary directory scrubbed successfully.", "success")
             except Exception:
                 pass
-
 
 if __name__ == "__main__":
     main()
