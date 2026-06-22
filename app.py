@@ -122,7 +122,7 @@ def parse_srt_string(srt_content):
     blocks = re.split(r'\n\s*\n', srt_content.strip())
     parsed_blocks = []
     
-    time_pattern = r"(\d{2}:\d{2}:\d{2}[,.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,.]\d{3})"
+    time_pattern = r"(\d{1,2}:\d{2}:\d{2}[,.]\d{3})\s*-->\s*(\d{1,2}:\d{2}:\d{2}[,.]\d{3})"
     
     for block in blocks:
         lines = [line.strip() for line in block.split('\n') if line.strip()]
